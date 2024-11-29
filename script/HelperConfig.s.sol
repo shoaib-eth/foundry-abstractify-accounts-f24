@@ -15,6 +15,7 @@ contract HelperConfig is Script {
     uint256 constant ZKSYNC_SEPOLIA_CHAIN_ID = 300;
     uint256 constant LOCAL_CHAIN_ID = 31337;
     address constant OWNER_WALLET = 0x9942DCd1530B90a68706D4881B81d60eE4B106ef;
+    address constant FOUNDRY_DEFAULT_WALLET = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
 
     NetworkConfig public localNetworkConfig;
     mapping(uint256 chainId => NetworkConfig) public networkConfigs;
@@ -49,5 +50,7 @@ contract HelperConfig is Script {
         if (localNetworkConfig.account != address(0)) {
             return localNetworkConfig;
         }
+        // deploy mocks
+        return NetworkConfig({entryPoint: address(0), account: FOUNDRY_DEFAULT_WALLET});
     }
 }
