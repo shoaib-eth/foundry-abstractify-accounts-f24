@@ -13,12 +13,22 @@ contract SendPackedUserOp is Script {
     using MessageHashUtils for bytes32;
 
     function run() public {
-        /*HelperConfig helperConfig = new HelperConfig();
+        HelperConfig helperConfig = new HelperConfig();
         address dest = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // Arbitrum Mainnet USDC Address
         uint256 value = 0;
-        bytes memory functionData = abi.encodeWithSelector(IERC20.approve.selector, 0x9942DCd1530B90a68706D4881B81d60eE4B106ef, 1e18);
-        bytes memory executeCallData = abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
-        PackedUserOperation memory userOp = generateSignedUserOperation(executeCallData, helperConfig.getConfig());*/
+        bytes memory functionData =
+            abi.encodeWithSelector(IERC20.approve.selector, 0x9942DCd1530B90a68706D4881B81d60eE4B106ef, 1e18);
+        bytes memory executeCallData =
+            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+        PackedUserOperation memory userOp = generateSignedUserOperation(
+            executeCallData, helperConfig.getConfig(), 0x56235b78F03ce3EcEa1ebd7B9d5352EC2Ca85C92
+        );
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = userOp;
+
+        vm.startBroadcast();
+        IEntryPoint(helperConfig.getConfig().entryPoint).handleOps(ops, payable(helperConfig.getConfig().account));
+        vm.stopBroadcast();
     }
 
     function generateSignedUserOperation(
