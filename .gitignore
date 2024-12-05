@@ -12,3 +12,21 @@ docs/
 
 # Dotenv file
 .env
+
+# shoaib.eth
+zkout/
+broadcast/
+.notes.md
+debugger/
+.vscode
+.DS_Store
+.encryptedKey.json
+.gitignore
+.devex_issues.md
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+.pnp/
+.pnp.js
