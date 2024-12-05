@@ -57,8 +57,11 @@ contract ZkMinimalAccount is IAccount, Ownable {
     error ZkMinimalAccount__ExecutionFailed();
     error ZkMinimalAccount__NotFromBootLoaderOrOwner();
     error ZkMinimalAccount__FailedToPay();
+    error ZkMinimalAccount__InvalidSignature();
 
     constructor() Ownable(msg.sender) {}
+
+    receive() external payable {}
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -91,33 +94,7 @@ contract ZkMinimalAccount is IAccount, Ownable {
         requireFromBootLoader
         returns (bytes4 magic)
     {
-        // Call a nonce hoder contract to increase the nonce
-        // call(x, y, z) -> system contract call
-        SystemContractsCaller.systemCallWithPropagatedRevert(
-            uint32(gasleft()),
-            address(NONCE_HOLDER_SYSTEM_CONTRACT),
-            0,
-            abi.encodeCall(INonceHolder.incrementMinNonceIfEquals, (_transaction.nonce))
-        );
-
-        // check for fee to pay
-        uint256 totalRequiredBalance = _transaction.totalRequiredBalance();
-        if (totalRequiredBalance > address(this).balance) {
-            revert ZkMinimalAccount__NotEnoughBalance();
-        }
-
-        // check the signature
-        bytes32 txHash = _transaction.encodeHash();
-        bytes32 convertedHash = MessageHashUtils.toEthSignedMessageHash(txHash);
-        address signer = ECDSA.recover(convertedHash, _transaction.signature);
-        bool isValidSigner = signer == owner();
-        if (isValidSigner) {
-            magic = ACCOUNT_VALIDATION_SUCCESS_MAGIC;
-        } else {
-            bytes4(0);
-        }
-        // return the "magic" number
-        return magic;
+        return _validateTransaction(_transaction);
     }
 
     function executeTransaction(bytes32, /*_txHash*/ bytes32, /*_suggestedSignedHash*/ Transaction memory _transaction)
@@ -125,27 +102,15 @@ contract ZkMinimalAccount is IAccount, Ownable {
         payable
         requireFromBootLoaderOrOwner
     {
-        address to = address(uint160(_transaction.to));
-        uint128 value = Utils.safeCastToU128(_transaction.value);
-        bytes memory data = _transaction.data;
-
-        if (to == address(DEPLOYER_SYSTEM_CONTRACT)) {
-            uint32 gas = Utils.safeCastToU32(gasleft());
-            SystemContractsCaller.systemCallWithPropagatedRevert(gas, to, value, data);
-        } else {
-            bool success;
-            assembly {
-                success := call(gas(), to, value, add(data, 0x20), mload(data), 0, 0)
-            }
-            if (!success) {
-                revert ZkMinimalAccount__ExecutionFailed();
-            }
-        }
+        _executeTransaction(_transaction);
     }
 
     // There is no point in providing possible signed hash in the `executeTransactionFromOutside` method,
     // since it typically should not be trusted.
-    function executeTransactionFromOutside(Transaction memory _transaction) external payable {}
+    function executeTransactionFromOutside(Transaction memory _transaction) external payable {
+        _validateTransaction(_transaction);
+        _executeTransaction(_transaction);
+    }
 
     function payForTransaction(bytes32, /*_txHash*/ bytes32, /*_suggestedSignedHash*/ Transaction memory _transaction)
         external
@@ -165,4 +130,52 @@ contract ZkMinimalAccount is IAccount, Ownable {
     /*//////////////////////////////////////////////////////////////
                            INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    function _validateTransaction(Transaction memory _transaction) internal returns (bytes4 magic) {
+        // Call nonceholder
+        // increment nonce
+        // call(x, y, z) -> system contract call
+        SystemContractsCaller.systemCallWithPropagatedRevert(
+            uint32(gasleft()),
+            address(NONCE_HOLDER_SYSTEM_CONTRACT),
+            0,
+            abi.encodeCall(INonceHolder.incrementMinNonceIfEquals, (_transaction.nonce))
+        );
+
+        // Check for fee to pay
+        uint256 totalRequiredBalance = _transaction.totalRequiredBalance();
+        if (totalRequiredBalance > address(this).balance) {
+            revert ZkMinimalAccount__NotEnoughBalance();
+        }
+
+        // Check the signature
+        bytes32 txHash = _transaction.encodeHash();
+        // bytes32 convertedHash = MessageHashUtils.toEthSignedMessageHash(txHash);
+        address signer = ECDSA.recover(txHash, _transaction.signature);
+        bool isValidSigner = signer == owner();
+        if (isValidSigner) {
+            magic = ACCOUNT_VALIDATION_SUCCESS_MAGIC;
+        } else {
+            magic = bytes4(0);
+        }
+        return magic;
+    }
+
+    function _executeTransaction(Transaction memory _transaction) internal {
+        address to = address(uint160(_transaction.to));
+        uint128 value = Utils.safeCastToU128(_transaction.value);
+        bytes memory data = _transaction.data;
+
+        if (to == address(DEPLOYER_SYSTEM_CONTRACT)) {
+            uint32 gas = Utils.safeCastToU32(gasleft());
+            SystemContractsCaller.systemCallWithPropagatedRevert(gas, to, value, data);
+        } else {
+            bool success;
+            assembly {
+                success := call(gas(), to, value, add(data, 0x20), mload(data), 0, 0)
+            }
+            if (!success) {
+                revert ZkMinimalAccount__ExecutionFailed();
+            }
+        }
+    }
 }
