@@ -21,7 +21,7 @@ contract ZkMinimalAccountTest is Test {
         usdc = new ERC20Mock();
     }
 
-    function tesZkOwnerCanExecuteCommands() public {
+    function testZkOwnerCanExecuteCommands() public {
         // Arrange
         address dest = address(usdc);
         uint256 value = 0;
@@ -52,21 +52,21 @@ contract ZkMinimalAccountTest is Test {
         bytes32[] memory factoryDeps = new bytes32[](0);
 
         return Transaction({
-            txType: transactionType,
+            txType: transactionType, // type 113 (0x71).
             from: uint256(uint160(from)),
             to: uint256(uint160(to)),
             gasLimit: 16777216,
-            gasPerPubDataByteLimit: 16777216,
+            gasPerPubdataByteLimit: 16777216,
             maxFeePerGas: 16777216,
             maxPriorityFeePerGas: 16777216,
             paymaster: 0,
             nonce: nonce,
             value: value,
-            reserved: (uint256(0), uint256(0), uint256(0), uint256(0)),
+            reserved: [uint256(0), uint256(0), uint256(0), uint256(0)],
             data: data,
             signature: hex"",
             factoryDeps: factoryDeps,
-            payMasterInput: hex"",
+            paymasterInput: hex"",
             reservedDynamic: hex""
         });
     }
